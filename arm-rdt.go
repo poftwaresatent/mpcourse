@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"time"
 )
 
 const (
@@ -101,18 +102,31 @@ func QDistance(aa, bb []float64) float64 {
 }
 
 
+func DumpRobot(rob []Ray) {
+	for _, ray := range(rob) {
+		fmt.Printf("% 5f  % 5f\n", ray.px, ray.py)
+	}
+	end := rob[len(rob)-1]
+	fmt.Printf("% 5f  % 5f\n", end.px + end.dx, end.py + end.dy)
+	fmt.Println()
+	fmt.Println()
+}
+
+
 func DumpPath(root *Node) {
 	for _, rob := range(root.robot) {
-		for _, ray := range(rob) {
-			fmt.Printf("% 5f  % 5f\n", ray.px, ray.py)
-		}
-		end := rob[len(rob)-1]
-		fmt.Printf("% 5f  % 5f\n", end.px + end.dx, end.py + end.dy)
-		fmt.Println()
-		fmt.Println()
+		DumpRobot(rob)
 	}
 	for _, succ := range(root.succ) {
 		DumpPath(succ)
+	}
+}
+
+
+func DumpNodes(root *Node) {
+	DumpRobot(root.robot[len(root.robot)-1])
+	for _, succ := range(root.succ) {
+		DumpNodes(succ)
 	}
 }
 
@@ -176,6 +190,8 @@ func QSample(qmin, qmax []float64, pgoal float64, qgoal []float64) []float64 {
 
 
 func main() {
+	rand.Seed(time.Now().UnixNano())
+	
 	qmin := []float64 {
 		-math.Pi/2.0,
 		-math.Pi/2.0,
@@ -200,15 +216,19 @@ func main() {
 	}
 	
 	var root Node
-	root.path = append(make([][]float64, 0), []float64 {  0.5, -0.5, -0.5,  0.5,  0.5 })
+//	root.path = append(make([][]float64, 0), []float64 {  0.5, -0.5, -0.5,  0.5,  0.5 })
+	root.path = append(make([][]float64, 0), []float64 {  0.0, 0.49*math.Pi, 0.49*math.Pi,  0.0,  0.0 })
 	root.robot = append(make([][]Ray, 0), RobotModel(root.path[0]))
 	root.succ = make([]*Node, 0)
 	
 	pgoal := 0.0
 	qgoal := []float64 {  1.0,  0.5,  1.0,  0.5,  1.0 }
 	
-	for ii := 0; ii < 4; ii += 1 {
+	dbgsamples := make([][]float64, 0)
+	
+	for ii := 0; ii < 10000; ii += 1 {
 		qsamp := QSample(qmin, qmax, pgoal, qgoal)
+		dbgsamples = append(dbgsamples, qsamp)
 		nearest, _ := FindNearest(&root, qsamp)
 		path, rob := Grow(nearest.path[len(nearest.path)-1], qsamp, environment)
 		if len(path) > 0 {
@@ -218,10 +238,16 @@ func main() {
 	}
 	
 	fmt.Println("set view equal xy")
-	fmt.Println("plot '-' u 1:2 w l t 'rob', '-' u 1:2 w l t 'env'")
+	fmt.Println("plot '-' u 1:2 w l t 'samples', '-' u 1:2 w l t 'nodes', '-' u 1:2 w l lw 2 t 'obst'")
 	
+	fmt.Println("# samples");
+	for _, qq := range(dbgsamples) {
+		DumpRobot(RobotModel(qq))
+	}
+	
+	fmt.Println("e")
 	fmt.Println("# robot");
-	DumpPath(&root)
+	DumpNodes(&root)
 	
 	fmt.Println("e")
  	fmt.Println("# environment");
