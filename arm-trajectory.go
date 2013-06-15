@@ -133,34 +133,36 @@ func main() {
 		}
 	}
 	
-	fmt.Println("# free configurations");
-	dump(free)
-	
-	fmt.Println("# obstacle configurations");
-	dump(obst)
-	
- 	fmt.Println("# environment");
- 	for _, ee := range(environment) {
- 		fmt.Printf("% 5f  % 5f\n% 5f  % 5f\n\n\n", ee.p0x, ee.p0y, ee.p1x, ee.p1y)
- 	}
-	
-	fmt.Println("# set view equal xy")
-	cmd := make([]string, 0) // could use pkg text/template
+	fmt.Println("set view equal xy")
+	cmd := make([]string, 0)
 	if 0 < len(free) {
-		cmd = append(cmd, "'data' i 0:" + its(len(free)-1) + " u 1:2 w l t 'free'")
+		cmd = append(cmd, "'-' u 1:2 w l t 'free'")
 	}
 	if 0 < len(obst) {
-		cmd = append(cmd, "'data' i " + its(len(free)) + ":" + its(len(free)+len(obst)-1) + " u 1:2 w l t 'obst'")
+		cmd = append(cmd, "'-' u 1:2 w l t 'obst'")
         }
         if 0 < len(environment) {
-                cmd = append(cmd, "'data' i " + its(len(free)+len(obst)) + ":" + its(len(free)+len(obst)+len(environment)-1) + " u 1:2 w l t 'env'")
+                cmd = append(cmd, "'-' u 1:2 w l t 'env'")
         }
 	for ii, cc := range(cmd) {
 		if 0 == ii {
-			fmt.Print("# plot ", cc)
+			fmt.Print("plot ", cc)
 		} else {
 			fmt.Print(", ", cc)
 		}
 	}
 	fmt.Println()
+	fmt.Println("# free configurations");
+	dump(free)
+	
+	fmt.Println("e")
+	fmt.Println("# obstacle configurations");
+	dump(obst)
+	
+	fmt.Println("e")
+ 	fmt.Println("# environment");
+ 	for _, ee := range(environment) {
+ 		fmt.Printf("% 5f  % 5f\n% 5f  % 5f\n\n\n", ee.p0x, ee.p0y, ee.p1x, ee.p1y)
+ 	}
+	
 }
