@@ -113,6 +113,13 @@ func DumpRobot(rob []Ray) {
 }
 
 
+func DumpRobots(rob [][]Ray) {
+	for _, rr := range(rob) {
+		DumpRobot(rr)
+	}
+}
+
+
 func DumpPath(root *Node) {
 	for _, rob := range(root.robot) {
 		DumpRobot(rob)
@@ -128,6 +135,19 @@ func DumpNodes(root *Node) {
 	for _, succ := range(root.succ) {
 		DumpNodes(succ)
 	}
+}
+
+
+func BacktracePath(leaf *Node) ([][]float64, [][]Ray) {
+	path := make([][]float64, 0)
+	robot := make([][]Ray, 0)
+	for nil != leaf {
+		path = append(leaf.path, path...)
+		robot = append(leaf.robot, robot...)
+		leaf = leaf.pred
+		fmt.Println("## ", len(path), " ", len(robot))
+	}
+	return path, robot
 }
 
 
@@ -193,8 +213,6 @@ func QSample(qmin, qmax []float64, pgoal float64, qgoal []float64) []float64 {
 func main() {
 	rand.Seed(time.Now().UnixNano())
 	
-	maxnsteps := 100
-	
 	qmin := []float64 {
 		-math.Pi/2.0,
 		-math.Pi/2.0,
@@ -218,35 +236,35 @@ func main() {
 		{  1.2, 0.7, 1.3, 0.6 },
 	}
 	
+	pgoal := 0.1
+	qgoal :=  []float64 { -0.49*math.Pi, -0.49*math.Pi, -0.49*math.Pi,  1.0,  -1.0}
+	qstart := []float64 {  0.0,           0.49*math.Pi,  0.49*math.Pi,  0.0,  0.0}
+	
 	var root Node
-//	root.path = append(make([][]float64, 0), []float64 {  0.5, -0.5, -0.5,  0.5,  0.5 })
-	root.path = append(make([][]float64, 0), []float64 {  0.0, 0.49*math.Pi, 0.49*math.Pi,  0.0,  0.0 })
+	root.path = append(make([][]float64, 0), qstart)
 	root.robot = append(make([][]Ray, 0), RobotModel(root.path[0]))
 	root.succ = make([]*Node, 0)
 	
-	pgoal := 0.0
-	qgoal := []float64 {  1.0,  0.5,  1.0,  0.5,  1.0 }
-	
 	dbgsamples := make([][]float64, 0)
-	
+	maxnsteps := 10000
+	var leaf *Node
 	for ii := 0; ii < maxnsteps; ii += 1 {
 		qsamp := QSample(qmin, qmax, pgoal, qgoal)
 		dbgsamples = append(dbgsamples, qsamp)
 		nearest, _ := FindNearest(&root, qsamp)
 		path, rob := Grow(nearest.path[len(nearest.path)-1], qsamp, environment)
 		if len(path) > 0 {
-			nearest.succ = append(nearest.succ,
-				&Node { path, rob, nearest, make([]*Node, 0) })
+			leaf = &Node { path, rob, nearest, make([]*Node, 0) }
+			nearest.succ = append(nearest.succ, leaf)
+			if QDistance(qgoal, path[len(path)-1]) < epsilon {
+				break;
+			}
 		}
 	}
 	
 	fmt.Println("set view equal xy")
-	fmt.Println("plot '-' u 1:2 w l t 'paths', '-' u 1:2 w l t 'samples', '-' u 1:2 w l t 'nodes', '-' u 1:2 w l lw 2 t 'obst'")
+	fmt.Println("plot '-' u 1:2 w l t 'samples', '-' u 1:2 w l t 'nodes', '-' u 1:2 w l t 'path', '-' u 1:2 w l lw 2 t 'query', '-' u 1:2 w l lw 2 t 'obst'")
 	
-	fmt.Println("# paths");
-	DumpPath(&root)
-	
-	fmt.Println("e")
 	fmt.Println("# samples");
 	for _, qq := range(dbgsamples) {
 		DumpRobot(RobotModel(qq))
@@ -256,6 +274,16 @@ func main() {
 	fmt.Println("# robot");
 	DumpNodes(&root)
 	
+	fmt.Println("e")
+	fmt.Println("# path");
+	_, robot := BacktracePath(leaf)
+	DumpRobots(robot)
+	
+	fmt.Println("e")
+	fmt.Println("# start and goal");
+	DumpRobot(RobotModel(qstart))
+	DumpRobot(RobotModel(qgoal))
+		
 	fmt.Println("e")
  	fmt.Println("# environment");
  	for _, ee := range(environment) {
