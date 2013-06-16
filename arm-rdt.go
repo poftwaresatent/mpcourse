@@ -147,18 +147,19 @@ func FindNearest(root *Node, qsamp []float64) (*Node, float64) {
 
 func Grow(qstart, qend []float64, obstacles []Line) ([][]float64, [][]Ray) {
 	dist := QDistance(qstart, qend)
-	var ds float64
+	var nsteps int
 	if dist < dqmax {
-		ds = 1.0
+		nsteps = 1
 	} else {
-		ds = 1.0 / math.Ceil(dist / dqmax)
+		nsteps = int(math.Ceil(dist / dqmax))
 	}
+	ds := 1.0 / float64(nsteps)
 	
 	path := make([][]float64, 0)
 	robot := make([][]Ray, 0)
 outer:
-	for ss := ds; ss <= 1.0; ss += ds {
-		qtry := QInterpolate(ss, qstart, qend)
+	for ii := 1; ii <= nsteps; ii += 1 {
+		qtry := QInterpolate(float64(ii) * ds, qstart, qend)
 		rob := RobotModel(qtry)
 		for _, ee := range(obstacles) {
 			for _, rr := range(rob) {
@@ -191,6 +192,8 @@ func QSample(qmin, qmax []float64, pgoal float64, qgoal []float64) []float64 {
 
 func main() {
 	rand.Seed(time.Now().UnixNano())
+	
+	maxnsteps := 100
 	
 	qmin := []float64 {
 		-math.Pi/2.0,
@@ -226,7 +229,7 @@ func main() {
 	
 	dbgsamples := make([][]float64, 0)
 	
-	for ii := 0; ii < 10000; ii += 1 {
+	for ii := 0; ii < maxnsteps; ii += 1 {
 		qsamp := QSample(qmin, qmax, pgoal, qgoal)
 		dbgsamples = append(dbgsamples, qsamp)
 		nearest, _ := FindNearest(&root, qsamp)
@@ -238,8 +241,12 @@ func main() {
 	}
 	
 	fmt.Println("set view equal xy")
-	fmt.Println("plot '-' u 1:2 w l t 'samples', '-' u 1:2 w l t 'nodes', '-' u 1:2 w l lw 2 t 'obst'")
+	fmt.Println("plot '-' u 1:2 w l t 'paths', '-' u 1:2 w l t 'samples', '-' u 1:2 w l t 'nodes', '-' u 1:2 w l lw 2 t 'obst'")
 	
+	fmt.Println("# paths");
+	DumpPath(&root)
+	
+	fmt.Println("e")
 	fmt.Println("# samples");
 	for _, qq := range(dbgsamples) {
 		DumpRobot(RobotModel(qq))
