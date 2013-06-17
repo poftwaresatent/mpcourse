@@ -15,4 +15,11 @@
     ],
     "Pgoal": 0.1,
     "Maxnsteps": 1000
+    "Plot": [
+	[ "samples",   "w l t 'samples'"    ],
+	[ "nodes",     "w l t 'nodes'"      ],
+	[ "path",      "w l t 'path'"       ],
+	[ "query",     "w l lw 2 t 'query'" ],
+	[ "obstacles", "w l lw 2 t 'obst'"  ]
+    ]
 }

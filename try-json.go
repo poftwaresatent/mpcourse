@@ -10,6 +10,7 @@ import (
 type Setup struct {
 	Qstart, Qgoal []float64
 	Environment [][]float64
+	Plotspec []string
 }
 
 func main() {
@@ -22,6 +23,7 @@ func main() {
 			{  1.0, 2.2, 1.2, 2.4 },
 			{  1.2, 0.7, 1.3, 0.6 },
 		},
+		[]string { "blah", "blih", "blupp" },
 	}
 	
 	msg, err := json.Marshal(blah)

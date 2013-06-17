@@ -26,6 +26,7 @@ type Setup struct {
 	RandomSeed int64        // random seed, in case you need repeatable runs
 	Pgoal float64		// bias for sampling from the goal set
 	Maxnsteps int		// maximum number of RDT steps
+	Plot [][]string		// list of things to plot, with optional custom style
 }
 
 
@@ -58,6 +59,13 @@ func DefaultSetup() Setup {
 	setup.RandomSeed = time.Now().UnixNano()
 	setup.Pgoal = 0.1
 	setup.Maxnsteps = 10000
+	setup.Plot = [][]string {
+		{ "samples",   "w l t 'samples'"    },
+		{ "nodes",     "w l t 'nodes'"      },
+		{ "path",      "w l t 'path'"       },
+		{ "query",     "w l lw 2 t 'query'" },
+		{ "obstacles", "w l lw 2 t 'obst'"  },
+	}
 	return setup
 }
 
@@ -326,7 +334,7 @@ func main() {
 	root.succ = make([]*Node, 0)
 	
 	samples := make([][]float64, 0)
-	var leaf *Node
+	var goal *Node
 	for ii := 0; ii < setup.Maxnsteps; ii += 1 {
 		qsamp := QSample(setup.Qmin, setup.Qmax, setup.Pgoal, setup.Qgoal)
 		samples = append(samples, qsamp)
@@ -334,40 +342,63 @@ func main() {
 		path, rob := Grow(nearest.path[len(nearest.path)-1], qsamp,
 			setup.Dqmax, setup.Obstacles)
 		if len(path) > 0 {
-			leaf = &Node { path, rob, nearest, make([]*Node, 0) }
-			nearest.succ = append(nearest.succ, leaf)
+			leaf := Node { path, rob, nearest, make([]*Node, 0) }
+			nearest.succ = append(nearest.succ, &leaf)
 			if QDistance(setup.Qgoal, path[len(path)-1]) < epsilon {
+				goal = &leaf
 				break;
 			}
 		}
 	}
 	
 	fmt.Println("set view equal xy")
-	fmt.Println("plot '-' u 1:2 w l t 'samples', '-' u 1:2 w l t 'nodes', '-' u 1:2 w l t 'path', '-' u 1:2 w l lw 2 t 'query', '-' u 1:2 w l lw 2 t 'obst'")
-	
-	fmt.Println("# samples");
-	for _, qq := range(samples) {
-		DumpRobot(RobotModel(qq))
+	for ii := 0; ii < len(setup.Plot); ii += 1 {
+		if 0 == ii {
+			fmt.Print("plot '-' u 1:2 ")
+		} else {
+			fmt.Print(", '-' u 1:2 ")
+		}
+		if len(setup.Plot[ii]) > 1 {
+			fmt.Print(setup.Plot[ii][1])
+		} else {
+			fmt.Print("w l t '", setup.Plot[ii][0], "'")
+		}
 	}
-	
-	fmt.Println("e")
-	fmt.Println("# robot");
-	DumpNodes(&root)
-	
-	fmt.Println("e")
-	fmt.Println("# path");
-	_, robot := BacktracePath(leaf)
-	DumpRobots(robot)
-	
-	fmt.Println("e")
-	fmt.Println("# start and goal");
-	DumpRobot(RobotModel(setup.Qstart))
-	DumpRobot(RobotModel(setup.Qgoal))
-		
-	fmt.Println("e")
- 	fmt.Println("# obstacles");
- 	for _, ee := range(setup.Obstacles) {
- 		fmt.Printf("% 5f  % 5f\n% 5f  % 5f\n\n\n", ee[0], ee[1], ee[2], ee[3])
- 	}
-	
+	fmt.Println()
+	for ii := 0; ii < len(setup.Plot); ii += 1 {
+		if "samples" == setup.Plot[ii][0] {
+			fmt.Println("# samples");
+			for _, qq := range(samples) {
+				DumpRobot(RobotModel(qq))
+			}
+			fmt.Println("e")
+		} else if "nodes" == setup.Plot[ii][0] {
+			fmt.Println("# nodes");
+			DumpNodes(&root)
+			fmt.Println("e")
+		} else if "path" == setup.Plot[ii][0] {
+			fmt.Println("# path");
+			if nil == goal {
+				fmt.Println("## no path found")
+			} else {
+				_, robot := BacktracePath(goal)
+				DumpRobots(robot)
+			}
+			fmt.Println("e")
+		} else if "query" == setup.Plot[ii][0] {
+			fmt.Println("# query (start and goal)");
+			DumpRobot(RobotModel(setup.Qstart))
+			DumpRobot(RobotModel(setup.Qgoal))
+			fmt.Println("e")
+		} else if "obstacles" == setup.Plot[ii][0] {
+			fmt.Println("# obstacles");
+			for _, ee := range(setup.Obstacles) {
+				fmt.Printf("% 5f  % 5f\n% 5f  % 5f\n\n\n",
+					ee[0], ee[1], ee[2], ee[3])
+			}
+			fmt.Println("e")
+		} else {
+			log.Fatal("invalid Plot \"", setup.Plot[ii][0], "\"")
+		}
+	}
 }
