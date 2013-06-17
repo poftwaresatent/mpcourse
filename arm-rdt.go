@@ -301,6 +301,7 @@ func main() {
 	samples := make([][]float64, 0)
 	var leaf *Node
 	for ii := 0; ii < setup.Maxnsteps; ii += 1 {
+		// TO DO: need to ensure that bounds are maintained /during/ growing as well as on the endpoints, and also for goal itself. Also need to check for collision at start or goal.
 		qsamp := QSample(setup.Qmin, setup.Qmax, setup.Pgoal, setup.Qgoal)
 		samples = append(samples, qsamp)
 		nearest, _ := FindNearest(&root, qsamp)
