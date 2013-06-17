@@ -5,17 +5,59 @@ import (
 	"math"
 	"math/rand"
 	"time"
+//	"encoding/json"
+//	"io/ioutil"
+//	"log"
 )
 
 const (
+	// threshold value for things considered "zero" (could be made configurable)
 	epsilon = 1.0e-3
-	dqmax = math.Pi / 90
 )
 
-
-type Line struct {
-	p0x, p0y, p1x, p1y float64
+type Setup struct {
+	Dqmax float64		// maximum angle increase during collision checking
+	Qstart []float64	// starting configuration
+	Qgoal []float64		// goal configuration (will be changed into a set later)
+	Qmin, Qmax []float64	// upper and lower bound for configuration components
+	Obstacles [][]float64	// obstacle (lines specified using 4 numbers [x0 y0 x1 y1])
+	RandomSeed int64        // random seed, in case you need repeatable runs
+	Pgoal float64		// bias for sampling from the goal set
+	Maxnsteps int		// maximum number of RDT steps
 }
+
+
+func DefaultSetup() Setup {
+	var setup Setup
+	setup.Dqmax = math.Pi / 90
+	setup.Qstart = []float64 { -0.49*math.Pi, -0.49*math.Pi, -0.49*math.Pi,  1.0,  -1.0}
+	setup.Qgoal = []float64 {  0.0,           0.49*math.Pi,  0.49*math.Pi,  0.0,  0.0}
+	setup.Qmin = []float64 {
+		-math.Pi/2.0,
+		-math.Pi/2.0,
+		-math.Pi/2.0,
+		-math.Pi/2.0,
+		-math.Pi/2.0,
+	}
+	setup.Qmax = []float64 {
+		math.Pi/2.0,
+		math.Pi/2.0,
+		math.Pi/2.0,
+		math.Pi/2.0,
+		math.Pi/2.0,
+	}
+	setup.Obstacles = [][]float64 {
+		{  0.0, 0.6, 0.5, 0.6 },
+		{  1.3, 1.3, 1.8, 1.3 },
+		{  1.0, 2.2, 1.2, 2.4 },
+		{  1.2, 0.7, 1.3, 0.6 },
+	}
+	setup.RandomSeed = time.Now().UnixNano()
+	setup.Pgoal = 0.1
+	setup.Maxnsteps = 10000
+	return setup
+}
+
 
 type Ray struct {
 	px, py, dx, dy float64
@@ -165,7 +207,7 @@ func FindNearest(root *Node, qsamp []float64) (*Node, float64) {
 }
 
 
-func Grow(qstart, qend []float64, obstacles []Line) ([][]float64, [][]Ray) {
+func Grow(qstart, qend []float64, dqmax float64, obstacles [][]float64) ([][]float64, [][]Ray) {
 	dist := QDistance(qstart, qend)
 	var nsteps int
 	if dist < dqmax {
@@ -183,7 +225,7 @@ outer:
 		rob := RobotModel(qtry)
 		for _, ee := range(obstacles) {
 			for _, rr := range(rob) {
-				dd := LineRayIntersect(ee.p0x, ee.p0y, ee.p1x, ee.p1y,
+				dd := LineRayIntersect(ee[0], ee[1], ee[2], ee[3],
 					rr.px, rr.py, rr.dx, rr.dy)
 				if 0 <= dd && 1 >= dd {
 					break outer
@@ -211,52 +253,26 @@ func QSample(qmin, qmax []float64, pgoal float64, qgoal []float64) []float64 {
 
 
 func main() {
-	rand.Seed(time.Now().UnixNano())
-	
-	qmin := []float64 {
-		-math.Pi/2.0,
-		-math.Pi/2.0,
-		-math.Pi/2.0,
-		-math.Pi/2.0,
-		-math.Pi/2.0,
-	}
-	
-	qmax := []float64 {
-		math.Pi/2.0,
-		math.Pi/2.0,
-		math.Pi/2.0,
-		math.Pi/2.0,
-		math.Pi/2.0,
-	}
-	
-	environment := []Line {
-		{  0.0, 0.6, 0.5, 0.6 },
-		{  1.3, 1.3, 1.8, 1.3 },
-		{  1.0, 2.2, 1.2, 2.4 },
-		{  1.2, 0.7, 1.3, 0.6 },
-	}
-	
-	pgoal := 0.1
-	qgoal :=  []float64 { -0.49*math.Pi, -0.49*math.Pi, -0.49*math.Pi,  1.0,  -1.0}
-	qstart := []float64 {  0.0,           0.49*math.Pi,  0.49*math.Pi,  0.0,  0.0}
+	setup := DefaultSetup()
+	rand.Seed(setup.RandomSeed)
 	
 	var root Node
-	root.path = append(make([][]float64, 0), qstart)
+	root.path = append(make([][]float64, 0), setup.Qstart)
 	root.robot = append(make([][]Ray, 0), RobotModel(root.path[0]))
 	root.succ = make([]*Node, 0)
 	
-	dbgsamples := make([][]float64, 0)
-	maxnsteps := 10000
+	samples := make([][]float64, 0)
 	var leaf *Node
-	for ii := 0; ii < maxnsteps; ii += 1 {
-		qsamp := QSample(qmin, qmax, pgoal, qgoal)
-		dbgsamples = append(dbgsamples, qsamp)
+	for ii := 0; ii < setup.Maxnsteps; ii += 1 {
+		qsamp := QSample(setup.Qmin, setup.Qmax, setup.Pgoal, setup.Qgoal)
+		samples = append(samples, qsamp)
 		nearest, _ := FindNearest(&root, qsamp)
-		path, rob := Grow(nearest.path[len(nearest.path)-1], qsamp, environment)
+		path, rob := Grow(nearest.path[len(nearest.path)-1], qsamp,
+			setup.Dqmax, setup.Obstacles)
 		if len(path) > 0 {
 			leaf = &Node { path, rob, nearest, make([]*Node, 0) }
 			nearest.succ = append(nearest.succ, leaf)
-			if QDistance(qgoal, path[len(path)-1]) < epsilon {
+			if QDistance(setup.Qgoal, path[len(path)-1]) < epsilon {
 				break;
 			}
 		}
@@ -266,7 +282,7 @@ func main() {
 	fmt.Println("plot '-' u 1:2 w l t 'samples', '-' u 1:2 w l t 'nodes', '-' u 1:2 w l t 'path', '-' u 1:2 w l lw 2 t 'query', '-' u 1:2 w l lw 2 t 'obst'")
 	
 	fmt.Println("# samples");
-	for _, qq := range(dbgsamples) {
+	for _, qq := range(samples) {
 		DumpRobot(RobotModel(qq))
 	}
 	
@@ -281,13 +297,13 @@ func main() {
 	
 	fmt.Println("e")
 	fmt.Println("# start and goal");
-	DumpRobot(RobotModel(qstart))
-	DumpRobot(RobotModel(qgoal))
+	DumpRobot(RobotModel(setup.Qstart))
+	DumpRobot(RobotModel(setup.Qgoal))
 		
 	fmt.Println("e")
- 	fmt.Println("# environment");
- 	for _, ee := range(environment) {
- 		fmt.Printf("% 5f  % 5f\n% 5f  % 5f\n\n\n", ee.p0x, ee.p0y, ee.p1x, ee.p1y)
+ 	fmt.Println("# obstacles");
+ 	for _, ee := range(setup.Obstacles) {
+ 		fmt.Printf("% 5f  % 5f\n% 5f  % 5f\n\n\n", ee[0], ee[1], ee[2], ee[3])
  	}
 	
 }
