@@ -5,9 +5,10 @@ import (
 	"math"
 	"math/rand"
 	"time"
-//	"encoding/json"
-//	"io/ioutil"
-//	"log"
+	"encoding/json"
+	"os"
+	"io/ioutil"
+	"log"
 )
 
 const (
@@ -16,6 +17,7 @@ const (
 )
 
 type Setup struct {
+	Unit string		// angle unit in parsed JSON file
 	Dqmax float64		// maximum angle increase during collision checking
 	Qstart []float64	// starting configuration
 	Qgoal []float64		// goal configuration (will be changed into a set later)
@@ -29,6 +31,7 @@ type Setup struct {
 
 func DefaultSetup() Setup {
 	var setup Setup
+	setup.Unit = "rad"
 	setup.Dqmax = math.Pi / 90
 	setup.Qstart = []float64 { -0.49*math.Pi, -0.49*math.Pi, -0.49*math.Pi,  1.0,  -1.0}
 	setup.Qgoal = []float64 {  0.0,           0.49*math.Pi,  0.49*math.Pi,  0.0,  0.0}
@@ -55,6 +58,40 @@ func DefaultSetup() Setup {
 	setup.RandomSeed = time.Now().UnixNano()
 	setup.Pgoal = 0.1
 	setup.Maxnsteps = 10000
+	return setup
+}
+
+
+func CreateSetup() Setup {
+	setup := DefaultSetup()
+	for _, arg := range(os.Args[1:]) {
+		msg, err := ioutil.ReadFile(arg)
+		if nil != err {
+			log.Fatal("reading ", arg, " failed: ", err)
+		}
+		err = json.Unmarshal(msg, &setup)
+		if nil != err {
+			log.Fatal("parsing ", arg, " failed: ", err)
+		}
+		fmt.Println("# parsed ", arg)
+	}
+	if setup.Unit == "deg" {
+		setup.Dqmax *= math.Pi / 180
+		for ii := 0; ii < len(setup.Qstart); ii += 1 {
+			setup.Qstart[ii] *= math.Pi / 180
+		}
+		for ii := 0; ii < len(setup.Qgoal); ii += 1 {
+			setup.Qgoal[ii] *= math.Pi / 180
+		}
+		for ii := 0; ii < len(setup.Qmin); ii += 1 {
+			setup.Qmin[ii] *= math.Pi / 180
+		}
+		for ii := 0; ii < len(setup.Qmax); ii += 1 {
+			setup.Qmax[ii] *= math.Pi / 180
+		}
+	} else if setup.Unit != "rad" {
+		log.Fatal("invalid unit \"", setup.Unit, "\"")
+	}
 	return setup
 }
 
@@ -253,7 +290,7 @@ func QSample(qmin, qmax []float64, pgoal float64, qgoal []float64) []float64 {
 
 
 func main() {
-	setup := DefaultSetup()
+	setup := CreateSetup()
 	rand.Seed(setup.RandomSeed)
 	
 	var root Node
