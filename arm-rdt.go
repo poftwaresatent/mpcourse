@@ -75,6 +75,11 @@ func CreateSetup() Setup {
 		}
 		fmt.Println("# parsed ", arg)
 	}
+	if len(setup.Qstart) != len(setup.Qgoal) ||
+		len(setup.Qstart) != len(setup.Qmin) ||
+		len(setup.Qstart) != len(setup.Qmax) {
+		log.Fatal("dimension mismatch")
+	}
 	if setup.Unit == "deg" {
 		setup.Dqmax *= math.Pi / 180
 		for ii := 0; ii < len(setup.Qstart); ii += 1 {
@@ -91,6 +96,20 @@ func CreateSetup() Setup {
 		}
 	} else if setup.Unit != "rad" {
 		log.Fatal("invalid unit \"", setup.Unit, "\"")
+	}
+	if ! IsFree(RobotModel(setup.Qgoal), setup.Obstacles) {
+		log.Fatal("start configuration is in collision")
+	}
+	if ! IsFree(RobotModel(setup.Qgoal), setup.Obstacles) {
+		log.Fatal("goal configuration is in collision")
+	}
+	for ii := 0; ii < len(setup.Qmin); ii += 1 {
+		if setup.Qstart[ii] < setup.Qmin[ii] || setup.Qstart[ii] > setup.Qmax[ii] {
+			log.Fatal("start violates joint limit")
+		}
+		if setup.Qgoal[ii] < setup.Qmin[ii] || setup.Qgoal[ii] > setup.Qmax[ii] {
+			log.Fatal("goal violates joint limit")
+		}
 	}
 	return setup
 }
@@ -244,6 +263,20 @@ func FindNearest(root *Node, qsamp []float64) (*Node, float64) {
 }
 
 
+func IsFree(robot []Ray, obstacles [][]float64) bool {
+	for _, ee := range(obstacles) {
+		for _, rr := range(robot) {
+			dd := LineRayIntersect(ee[0], ee[1], ee[2], ee[3],
+				rr.px, rr.py, rr.dx, rr.dy)
+			if 0 <= dd && 1 >= dd {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+
 func Grow(qstart, qend []float64, dqmax float64, obstacles [][]float64) ([][]float64, [][]Ray) {
 	dist := QDistance(qstart, qend)
 	var nsteps int
@@ -256,21 +289,15 @@ func Grow(qstart, qend []float64, dqmax float64, obstacles [][]float64) ([][]flo
 	
 	path := make([][]float64, 0)
 	robot := make([][]Ray, 0)
-outer:
 	for ii := 1; ii <= nsteps; ii += 1 {
 		qtry := QInterpolate(float64(ii) * ds, qstart, qend)
 		rob := RobotModel(qtry)
-		for _, ee := range(obstacles) {
-			for _, rr := range(rob) {
-				dd := LineRayIntersect(ee[0], ee[1], ee[2], ee[3],
-					rr.px, rr.py, rr.dx, rr.dy)
-				if 0 <= dd && 1 >= dd {
-					break outer
-				}
-			}
+		if IsFree(rob, obstacles) {
+			path = append(path, qtry)
+			robot = append(robot, rob)
+		} else {
+			break
 		}
-		path = append(path, qtry)
-		robot = append(robot, rob)
 	}
 	
 	return path, robot
@@ -301,7 +328,6 @@ func main() {
 	samples := make([][]float64, 0)
 	var leaf *Node
 	for ii := 0; ii < setup.Maxnsteps; ii += 1 {
-		// TO DO: need to ensure that bounds are maintained /during/ growing as well as on the endpoints, and also for goal itself. Also need to check for collision at start or goal.
 		qsamp := QSample(setup.Qmin, setup.Qmax, setup.Pgoal, setup.Qgoal)
 		samples = append(samples, qsamp)
 		nearest, _ := FindNearest(&root, qsamp)
