@@ -1,5 +1,6 @@
 package main
 
+
 import (
 	"fmt"
 	"math"
@@ -11,10 +12,12 @@ import (
 	"log"
 )
 
+
 const (
 	// threshold value for things considered "zero" (could be made configurable)
 	epsilon = 1.0e-3
 )
+
 
 type Setup struct {
 	Unit string		// angle unit in parsed JSON file
@@ -27,6 +30,19 @@ type Setup struct {
 	Pgoal float64		// bias for sampling from the goal set
 	Maxnsteps int		// maximum number of RDT steps
 	Plot [][]string		// list of things to plot, with optional custom style
+}
+
+
+type Ray struct {
+	px, py, dx, dy float64
+}
+
+
+type Node struct {
+	path [][]float64
+	robot [][]Ray
+	pred *Node
+	succ []*Node
 }
 
 
@@ -120,18 +136,6 @@ func CreateSetup() Setup {
 		}
 	}
 	return setup
-}
-
-
-type Ray struct {
-	px, py, dx, dy float64
-}
-
-type Node struct {
-	path [][]float64
-	robot [][]Ray
-	pred *Node
-	succ []*Node
 }
 
 
