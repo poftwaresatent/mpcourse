@@ -10,7 +10,6 @@ const (
 	PHMAX = math. Pi/4
 	TRJ_DURATION = 0.1
 	SIM_NSTEPS = 10
-	TREEDEPTH = 5
 )
 
 type state struct {
@@ -58,7 +57,11 @@ func main() {
 		// {-0.5,  PHMAX},
 	}
 	
-	for queue[0].depth <= TREEDEPTH {
+	treedepth := 5
+	
+	fmt.Println("set view equal xy")
+	fmt.Println("plot '-' u 1:2 w l t 'rollout'")
+	for queue[0].depth <= treedepth {
 		ee := queue[0]
 		queue = queue[1:]
 		for _, ut := range(u) {
