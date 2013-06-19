@@ -1,0 +1,19 @@
+{
+    "Unit": "deg",
+    "Dqmax": 1.0,
+    "Qmin":   [    0, -120, -120, -120, -120 ],
+    "Qmax":   [  180,  120,  120,  120,  120 ],
+    "Qstart": [  135,   45,   45,   45,   90 ],
+    "Qgoal":  [   60,  -30,  -20,   -5,   -5 ],
+    "Obstacles": [
+    ],
+    "Pgoal": 1.0,
+    "Maxnsteps": 1000,
+    "Plot": [
+	[ "nodes",     "w l lc rgb 'green'   t 'nodes'"      ],
+	[ "path",      "w l lc rgb 'blue'    t 'path'"       ],
+	[ "query",     "w l lc rgb 'magenta' lw 2 t 'query'" ],
+	[ "obstacles", "w l lc rgb 'red'     lw 2 t 'obst'"  ]
+    ]
+    
+}
