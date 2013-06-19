@@ -1,5 +1,9 @@
 package main
 
+/*
+How to create animation using ffmpeg (tweak as required to fit your setup):
+    ffmpeg -f image2 -pattern_type glob -i 'blah*.png' blah.mp4
+*/
 
 import (
 	"fmt"
