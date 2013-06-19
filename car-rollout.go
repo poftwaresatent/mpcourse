@@ -10,7 +10,6 @@ const (
 	PHMAX = math.Pi/4
 	TRJ_DURATION = 0.5
 	SIM_NSTEPS = 10
-	MAXDIST = 20
 )
 
 type state struct {
@@ -114,18 +113,23 @@ func main() {
 	u := []control{
 		{ 1.0, -PHMAX/2},
 		{ 1.0,  PHMAX/2},
-		// { 1.0,  0.0},
-		// {-0.5, -PHMAX},
-		// {-0.5,  PHMAX},
+		{ 1.0,  0.0},
+		{-0.5, -PHMAX},
+		{-0.5,  PHMAX},
 	}
 	goal := state{ 1.0, 1.0, 0.0 }
 	goaldist := 0.5
+	
+	fmt.Println("set view equal xy")
+	fmt.Println("plot '-' u 1:2 w p t 'junctions'")
+
+	maxdist := 5.0
 	
 outer:
 	for !empty(heap) {
 		heap = extract(heap)
 		ee := heap[0]
-		if ee.dist > MAXDIST {
+		if ee.dist > maxdist {
 			fmt.Println("# max dist reached")
 			break
 		}
