@@ -30,6 +30,8 @@ type Setup struct {
 	Pgoal float64		// bias for sampling from the goal set
 	Maxnsteps int		// maximum number of RDT steps
 	Plot [][]string		// list of things to plot, with optional custom style
+	AnimationLength int	// creates animated output if value > 1
+	AnimationFile string
 }
 
 
@@ -82,6 +84,8 @@ func DefaultSetup() Setup {
 		{ "query",     "w l lw 2 t 'query'" },
 		{ "obstacles", "w l lw 2 t 'obst'"  },
 	}
+	setup.AnimationLength = 1
+	setup.AnimationFile = "anim"
 	return setup
 }
 
@@ -223,9 +227,9 @@ func DumpRobot(rob []Ray) {
 }
 
 
-func DumpRobots(rob [][]Ray) {
-	for _, rr := range(rob) {
-		DumpRobot(rr)
+func DumpRobots(rob [][]Ray, offset, step int) {
+	for ii := offset; ii < len(rob); ii += step {
+		DumpRobot(rob[ii])
 	}
 }
 
@@ -329,6 +333,10 @@ func QSample(qmin, qmax []float64, pgoal float64, qgoal []float64) []float64 {
 
 
 func main() {
+	
+	//////////////////////////////////////////////////
+	// initializations
+	
 	setup := CreateSetup()
 	rand.Seed(setup.RandomSeed)
 	
@@ -336,6 +344,9 @@ func main() {
 	root.path = append(make([][]float64, 0), setup.Qstart)
 	root.robot = append(make([][]Ray, 0), RobotModel(root.path[0]))
 	root.succ = make([]*Node, 0)
+	
+	//////////////////////////////////////////////////
+	// RRT algorithm
 	
 	samples := make([][]float64, 0)
 	var goal *Node
@@ -355,54 +366,100 @@ func main() {
 		}
 	}
 	
-	fmt.Println("set view equal xy")
-	for ii := 0; ii < len(setup.Plot); ii += 1 {
-		if 0 == ii {
-			fmt.Print("plot '-' u 1:2 ")
-		} else {
-			fmt.Print(", '-' u 1:2 ")
-		}
-		if len(setup.Plot[ii]) > 1 {
-			fmt.Print(setup.Plot[ii][1])
-		} else {
-			fmt.Print("w l t '", setup.Plot[ii][0], "'")
-		}
+	//////////////////////////////////////////////////
+	// output to gnuplot
+	
+	var robot [][]Ray;
+	if nil != goal {
+		_, robot = BacktracePath(goal)
 	}
-	fmt.Println()
-	for ii := 0; ii < len(setup.Plot); ii += 1 {
-		if "samples" == setup.Plot[ii][0] {
-			fmt.Println("# samples");
-			for _, qq := range(samples) {
-				DumpRobot(RobotModel(qq))
-			}
-			fmt.Println("e")
-		} else if "nodes" == setup.Plot[ii][0] {
-			fmt.Println("# nodes");
-			DumpNodes(&root)
-			fmt.Println("e")
-		} else if "path" == setup.Plot[ii][0] {
-			fmt.Println("# path");
-			if nil == goal {
-				fmt.Println("## no path found")
+	var x0, y0, x1, y1 float64
+	for ii, ee := range(setup.Obstacles) {
+		if 0 == ii || ee[0] < x0 { x0 = ee[0] }
+		if 0 == ii || ee[1] < y0 { y0 = ee[1] }
+		if 0 == ii || ee[0] > x1 { x1 = ee[0] }
+		if 0 == ii || ee[1] > y1 { y1 = ee[1] }
+		if 0 == ii || ee[2] < x0 { x0 = ee[2] }
+		if 0 == ii || ee[3] < y0 { y0 = ee[3] }
+		if 0 == ii || ee[2] > x1 { x1 = ee[2] }
+		if 0 == ii || ee[3] > y1 { y1 = ee[3] }
+	}
+	for _, rob := range(robot) {
+		for _, ray := range(rob) {
+			if ray.px < x0 { x0 = ray.px }
+			if ray.py < y0 { y0 = ray.py }
+			if ray.px > x1 { x1 = ray.px }
+			if ray.py > y1 { y1 = ray.py }
+		}
+		ray := rob[len(rob)-1]
+		if ray.px + ray.dx < x0 { x0 = ray.px + ray.dx }
+		if ray.py + ray.dy < y0 { y0 = ray.py + ray.dy }
+		if ray.px + ray.dx > x1 { x1 = ray.px + ray.dx }
+		if ray.py + ray.dy > y1 { y1 = ray.py + ray.dy }
+	}
+	
+	for aa := 0; aa < setup.AnimationLength; aa += 1 {
+		fmt.Println("set view equal xy")
+		fmt.Printf("set xrange [%f:%f]\n", x0, x1)
+		fmt.Printf("set yrange [%f:%f]\n", y0, y1)
+		if setup.AnimationLength > 1 {
+			fmt.Println("set term png")
+			fmt.Printf("set output '%s%04d.png'\n", setup.AnimationFile, aa)
+		}
+		for ii := 0; ii < len(setup.Plot); ii += 1 {
+			if 0 == ii {
+				fmt.Print("plot '-' u 1:2 ")
 			} else {
-				_, robot := BacktracePath(goal)
-				DumpRobots(robot)
+				fmt.Print(", '-' u 1:2 ")
 			}
-			fmt.Println("e")
-		} else if "query" == setup.Plot[ii][0] {
-			fmt.Println("# query (start and goal)");
-			DumpRobot(RobotModel(setup.Qstart))
-			DumpRobot(RobotModel(setup.Qgoal))
-			fmt.Println("e")
-		} else if "obstacles" == setup.Plot[ii][0] {
-			fmt.Println("# obstacles");
-			for _, ee := range(setup.Obstacles) {
-				fmt.Printf("% 5f  % 5f\n% 5f  % 5f\n\n\n",
-					ee[0], ee[1], ee[2], ee[3])
+			if len(setup.Plot[ii]) > 1 {
+				fmt.Print(setup.Plot[ii][1])
+			} else {
+				fmt.Print("w l t '", setup.Plot[ii][0], "'")
 			}
-			fmt.Println("e")
-		} else {
-			log.Fatal("invalid Plot \"", setup.Plot[ii][0], "\"")
+		}
+		fmt.Println()
+		for ii := 0; ii < len(setup.Plot); ii += 1 {
+			if "samples" == setup.Plot[ii][0] {
+				fmt.Println("# samples");
+				for _, qq := range(samples) {
+					DumpRobot(RobotModel(qq))
+				}
+				fmt.Println("e")
+			} else if "nodes" == setup.Plot[ii][0] {
+				fmt.Println("# nodes");
+				DumpNodes(&root)
+				fmt.Println("e")
+			} else if "path" == setup.Plot[ii][0] {
+				fmt.Println("# path");
+				if nil == goal {
+					fmt.Println("## no path found")
+				} else {
+					if setup.AnimationLength > 1 {
+						DumpRobots(robot, aa, setup.AnimationLength)
+					} else {
+						DumpRobots(robot, 0, 1)
+					}
+				}
+				fmt.Println("e")
+			} else if "query" == setup.Plot[ii][0] {
+				fmt.Println("# query (start and goal)");
+				DumpRobot(RobotModel(setup.Qstart))
+				DumpRobot(RobotModel(setup.Qgoal))
+				fmt.Println("e")
+			} else if "obstacles" == setup.Plot[ii][0] {
+				fmt.Println("# obstacles");
+				for _, ee := range(setup.Obstacles) {
+					fmt.Printf("% 5f  % 5f\n% 5f  % 5f\n\n\n",
+						ee[0], ee[1], ee[2], ee[3])
+				}
+				fmt.Println("e")
+			} else {
+				log.Fatal("invalid Plot \"", setup.Plot[ii][0], "\"")
+			}
+		}
+		if nil == goal || setup.AnimationLength <= 1 {
+			break
 		}
 	}
 }
