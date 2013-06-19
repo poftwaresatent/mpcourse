@@ -33,6 +33,7 @@
 	[ "path",      "w l lc rgb 'blue'    t 'path'"       ],
 	[ "query",     "w l lc rgb 'magenta' lw 2 t 'query'" ],
 	[ "obstacles", "w l lc rgb 'red'     lw 2 t 'obst'"  ]
-    ]
-    
+    ],
+    "AnimationLength": -10,
+    "AnimationFile": "bar/img"
 }

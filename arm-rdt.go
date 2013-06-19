@@ -402,13 +402,19 @@ func main() {
 		if ray.py + ray.dy > y1 { y1 = ray.py + ray.dy }
 	}
 	
+	if setup.AnimationLength == 0 {
+		setup.AnimationLength = 1
+	} else if setup.AnimationLength < 0 {
+		setup.AnimationLength = len(robot) / -setup.AnimationLength
+	}
+	
 	for aa := 0; aa < setup.AnimationLength; aa += 1 {
 		fmt.Println("set view equal xy")
 		fmt.Printf("set xrange [%f:%f]\n", x0, x1)
 		fmt.Printf("set yrange [%f:%f]\n", y0, y1)
 		if setup.AnimationLength > 1 {
 			fmt.Println("set term png")
-			fmt.Printf("set output '%s%04d.png'\n", setup.AnimationFile, aa)
+			fmt.Printf("set output '%s%06d.png'\n", setup.AnimationFile, aa)
 		}
 		for ii := 0; ii < len(setup.Plot); ii += 1 {
 			if 0 == ii {
