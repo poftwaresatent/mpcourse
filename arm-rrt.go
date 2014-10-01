@@ -1,6 +1,13 @@
 package main
 
 /*
+How to pipe output directly to gnuplot (assumes AnimationLength = 0 in the setup):
+    go run arm-rrt.go setup0.json | gnuplot -p
+
+When setting AnimationLength > 1, you still pipe it into gnuplot but
+the program creates a number of png files in the cwd, which can then
+get converted into a movie.
+
 How to create animation using ffmpeg (tweak as required to fit your setup):
     ffmpeg -f image2 -pattern_type glob -i 'blah*.png' blah.mp4
 */
